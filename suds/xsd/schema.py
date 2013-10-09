@@ -38,8 +38,8 @@ from logging import getLogger
 log = getLogger(__name__)
 
 #patch recursion suds __a.gurinov__
-PROCESSED_IMPORTS = []
-PROCESSED_IMPORT_DEPTH = []
+PROCESSED_IMPORTS_CACHE = {}
+PROCESSED_IMPORT_DEPTH = {}
 MAX_IMPORT_DEPTH = 3
 #end
 
@@ -401,22 +401,42 @@ class Schema:
         @note: This is only used by Import children.
         """
         #patch recursion suds __a.gurinov__
-        global PROCESSED_IMPORTS, PROCESSED_IMPORT_DEPTH, MAX_IMPORT_DEPTH
-        if baseurl in PROCESSED_IMPORTS:
-            ind = PROCESSED_IMPORTS.index(baseurl)
-            if (PROCESSED_IMPORT_DEPTH[ind] < MAX_IMPORT_DEPTH):
-                PROCESSED_IMPORT_DEPTH[ind]+=1
-                log.debug('Increasing import count for: {0}'.format(baseurl))
-            else:
-                log.debug('Skipping processed import: {0}'.format(baseurl))
-                return None
-        else:
-            PROCESSED_IMPORTS.append(baseurl)
-            log.debug('Appending new import: {0}'.format(baseurl))
-            PROCESSED_IMPORT_DEPTH.append(1)
+        #global PROCESSED_IMPORTS, PROCESSED_IMPORT_DEPTH, MAX_IMPORT_DEPTH
+        #if baseurl in PROCESSED_IMPORTS:
+        #    ind = PROCESSED_IMPORTS.index(baseurl)
+        #    if (PROCESSED_IMPORT_DEPTH[ind] < MAX_IMPORT_DEPTH):
+        #        PROCESSED_IMPORT_DEPTH[ind]+=1
+        #        log.debug('Increasing import count for: {0}'.format(baseurl))
+        #    else:
+        #        log.debug('Skipping processed import: {0}'.format(baseurl))
+        #        return None
+        #else:
+        #    PROCESSED_IMPORTS.append(baseurl)
+        #    log.debug('Appending new import: {0}'.format(baseurl))
+        #    PROCESSED_IMPORT_DEPTH.append(1)
         #end
+        #return Schema(root, baseurl, options)
 
-        return Schema(root, baseurl, options)
+        global PROCESSED_IMPORTS_CACHE, PROCESSED_IMPORT_DEPTH, MAX_IMPORT_DEPTH
+        if not baseurl in PROCESSED_IMPORTS_CACHE:
+            if baseurl in PROCESSED_IMPORT_DEPTH:
+                if (PROCESSED_IMPORT_DEPTH[baseurl] < MAX_IMPORT_DEPTH):
+                    PROCESSED_IMPORT_DEPTH[baseurl]+=1
+                    log.debug('Increasing import count for: %s' % baseurl)
+                else:
+                    log.debug('Maxdepth (%d) reached; Skipping processed import: %s' % (MAX_IMPORT_DEPTH, baseurl))
+                    return None
+            else:
+                PROCESSED_IMPORT_DEPTH[baseurl] = 1
+                log.debug('Importing for the first time: %s' % baseurl)
+
+            PROCESSED_IMPORTS_CACHE[baseurl] = Schema(root, baseurl, options)
+            log.debug('Successfully cached import: %s' % baseurl)
+        else:
+            log.debug('Retrieving import from cache: %s' % baseurl)
+
+        return PROCESSED_IMPORTS_CACHE[baseurl]
+
 
     def str(self, indent=0):
         tab = '%*s'%(indent*3, '')
@@ -439,6 +459,3 @@ class Schema:
     
     def __unicode__(self):
         return self.str()
-
-
-
